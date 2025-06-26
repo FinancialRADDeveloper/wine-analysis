@@ -57,12 +57,13 @@ def fetch_order_links(session):
 
 def main():
     print('Wine Society scraper starting...')
+
+    # Get email and password from .env file
+    
+
     email = os.getenv('WINE_SOCIETY_EMAIL')
     password = os.getenv('WINE_SOCIETY_PASSWORD')
-    if not email:
-        email = input('Enter your Wine Society email: ')
-    if not password:
-        password = getpass.getpass('Enter your password: ')
+
     session = requests.Session()
     if not login(session, email, password):
         return
