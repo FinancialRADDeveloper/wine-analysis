@@ -7,7 +7,7 @@ import os
 # File paths
 CSV_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Data', 'WineSociety', 'raw', 'TWS_Members_Wines_CSV_638865531904137428.csv')
 
-def load_wine_data():
+def load_wine_data() -> pd.DataFrame:
     """
     Load the Wine Society CSV data with headers on the second line
     """
@@ -19,7 +19,7 @@ def load_wine_data():
     
     return df
 
-def clean_wine_data(df):
+def clean_wine_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and prepare the wine data for analysis
     """
@@ -113,7 +113,7 @@ def clean_wine_data(df):
     
     return df_clean
 
-def get_data_summary(df):
+def get_data_summary(df: pd.DataFrame) -> dict:
     """
     Generate summary statistics for the wine data
     """
@@ -131,7 +131,7 @@ def get_data_summary(df):
     
     return summary
 
-def main():
+def main() -> pd.DataFrame:
     """
     Main function to load, clean, and prepare wine data
     """

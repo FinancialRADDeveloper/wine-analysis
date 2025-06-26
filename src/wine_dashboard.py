@@ -10,7 +10,7 @@ from wine_soc_data_analysis import load_wine_data, clean_wine_data, get_data_sum
 # Load and prepare the data
 print("Loading wine data for dashboard...")
 df_raw = load_wine_data()
-df = clean_wine_data(df_raw)
+df: pd.DataFrame = clean_wine_data(df_raw)
 summary = get_data_summary(df)
 
 # Initialize the Dash app
@@ -49,8 +49,8 @@ app.layout = html.Div([
             html.Label("Wine Type:"),
             dcc.Dropdown(
                 id='wine-type-filter',
-                options=[{'label': 'All Types', 'value': 'All'}] + 
-                        [{'label': wine_type, 'value': wine_type} for wine_type in df['Wine_Type'].unique()],
+                options=[{'label': 'All Types', 'value': 'All'}] +  # type: ignore
+                        [{'label': str(wine_type), 'value': str(wine_type)} for wine_type in sorted(df['Wine_Type'].unique())],
                 value='All',
                 style={'width': '100%'}
             )
@@ -60,8 +60,8 @@ app.layout = html.Div([
             html.Label("Price Range:"),
             dcc.Dropdown(
                 id='price-filter',
-                options=[{'label': 'All Prices', 'value': 'All'}] + 
-                        [{'label': price_cat, 'value': price_cat} for price_cat in df['Price_Category'].unique() if pd.notna(price_cat)],
+                options=[{'label': 'All Prices', 'value': 'All'}] +  # type: ignore
+                        [{'label': str(price_cat), 'value': str(price_cat)} for price_cat in sorted(df['Price_Category'].dropna().unique())],
                 value='All',
                 style={'width': '100%'}
             )
@@ -138,10 +138,7 @@ app.layout = html.Div([
             page_size=10,
             style_table={'overflowX': 'auto'},
             style_cell={'textAlign': 'left', 'padding': '10px'},
-            style_header={'backgroundColor': '#2c3e50', 'color': 'white', 'fontWeight': 'bold'},
-            style_data_conditional=[
-                {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'}
-            ]
+            style_header={'backgroundColor': '#2c3e50', 'color': 'white', 'fontWeight': 'bold'}
         )
     ], style={'marginTop': 30}),
     
@@ -166,64 +163,102 @@ app.layout = html.Div([
      Input('year-slider', 'value')]
 )
 def update_charts(wine_type, price_range, year_range):
-    # Filter the dataframe
-    filtered_df = df.copy()
-    
-    if wine_type != 'All':
-        filtered_df = filtered_df[filtered_df['Wine_Type'] == wine_type]
-    
-    if price_range != 'All':
-        filtered_df = filtered_df[filtered_df['Price_Category'] == price_range]
-    
-    filtered_df = filtered_df[
-        (filtered_df['Purchase_Year'] >= year_range[0]) & 
-        (filtered_df['Purchase_Year'] <= year_range[1])
-    ]
-    
-    # 1. Purchase Timeline
-    timeline_data = filtered_df.groupby('Purchase date')['Purchase price'].sum().reset_index()
-    timeline_fig = px.line(timeline_data, x='Purchase date', y='Purchase price',
-                          title='Cumulative Spending Over Time',
-                          labels={'Purchase price': 'Total Spent (£)', 'Purchase date': 'Date'})
-    timeline_fig.update_layout(showlegend=False)
-    
-    # 2. Wine Type Distribution
-    wine_type_counts = filtered_df['Wine_Type'].value_counts()
-    pie_fig = px.pie(values=wine_type_counts.values, names=wine_type_counts.index,
-                     title='Distribution by Wine Type')
-    
-    # 3. Price Distribution
-    price_fig = px.histogram(filtered_df, x='Purchase price', nbins=20,
-                            title='Price Distribution',
-                            labels={'Purchase price': 'Price (£)', 'count': 'Number of Purchases'})
-    price_fig.update_layout(showlegend=False)
-    
-    # 4. Regional Analysis
-    region_data = filtered_df['Region_Code'].value_counts().head(10)
-    region_fig = px.bar(x=region_data.index, y=region_data.values,
-                       title='Top 10 Wine Regions',
-                       labels={'x': 'Region Code', 'y': 'Number of Purchases'})
-    region_fig.update_layout(showlegend=False)
-    
-    # 5. Vintage Analysis
-    vintage_data = filtered_df[filtered_df['Vintage'].notna()].groupby('Vintage')['Purchase price'].mean()
-    vintage_fig = px.scatter(x=vintage_data.index, y=vintage_data.values,
-                           title='Average Price by Vintage',
-                           labels={'x': 'Vintage', 'y': 'Average Price (£)'})
-    vintage_fig.update_layout(showlegend=False)
-    
-    # 6. Monthly Pattern
-    monthly_data = filtered_df.groupby('Purchase_Month')['Purchase price'].sum()
-    monthly_fig = px.bar(x=monthly_data.index, y=monthly_data.values,
-                        title='Total Spending by Month',
-                        labels={'x': 'Month', 'y': 'Total Spent (£)'})
-    monthly_fig.update_layout(showlegend=False)
-    
-    # 7. Table data
-    table_data = filtered_df[['Product name', 'Product code', 'Purchase date', 'Purchase price', 
-                             'Wine_Type', 'Vintage', 'Region_Code']].to_dict('records')
-    
-    return timeline_fig, pie_fig, price_fig, region_fig, vintage_fig, monthly_fig, table_data
+    try:
+        # Filter the dataframe
+        filtered_df: pd.DataFrame = df.copy()
+        
+        if wine_type != 'All':
+            filtered_df = pd.DataFrame(filtered_df[filtered_df['Wine_Type'] == wine_type])
+        
+        if price_range != 'All':
+            filtered_df = pd.DataFrame(filtered_df[filtered_df['Price_Category'] == price_range])
+        
+        filtered_df = pd.DataFrame(filtered_df[
+            (filtered_df['Purchase_Year'] >= year_range[0]) & 
+            (filtered_df['Purchase_Year'] <= year_range[1])
+        ])
+        
+        # Check if filtered data is empty
+        if filtered_df.empty:
+            # Return empty figures
+            empty_fig = px.scatter(title="No data available for selected filters")
+            empty_pie = px.pie(values=[1], names=['No Data'], title="No data available")
+            empty_hist = px.histogram(title="No data available")
+            empty_bar = px.bar(title="No data available")
+            empty_scatter = px.scatter(title="No data available")
+            empty_monthly = px.bar(title="No data available")
+            
+            return empty_fig, empty_pie, empty_hist, empty_bar, empty_scatter, empty_monthly, []
+        
+        # 1. Purchase Timeline
+        timeline_data = filtered_df.groupby('Purchase date')['Purchase price'].sum().reset_index()
+        timeline_fig = px.line(timeline_data, x='Purchase date', y='Purchase price',
+                              title='Cumulative Spending Over Time',
+                              labels={'Purchase price': 'Total Spent (£)', 'Purchase date': 'Date'})
+        timeline_fig.update_layout(showlegend=False)
+        
+        # 2. Wine Type Distribution
+        wine_type_counts = filtered_df['Wine_Type'].value_counts()
+        if len(wine_type_counts) > 0:
+            pie_fig = px.pie(values=wine_type_counts.values, names=wine_type_counts.index,
+                             title='Distribution by Wine Type')
+        else:
+            pie_fig = px.pie(values=[1], names=['No Data'], title='No Wine Types Available')
+        
+        # 3. Price Distribution
+        price_fig = px.histogram(filtered_df, x='Purchase price', nbins=20,
+                                title='Price Distribution',
+                                labels={'Purchase price': 'Price (£)', 'count': 'Number of Purchases'})
+        price_fig.update_layout(showlegend=False)
+        
+        # 4. Regional Analysis
+        region_data = filtered_df['Region_Code'].value_counts().head(10)
+        if len(region_data) > 0:
+            region_fig = px.bar(x=region_data.index, y=region_data.values,
+                               title='Top 10 Wine Regions',
+                               labels={'x': 'Region Code', 'y': 'Number of Purchases'})
+        else:
+            region_fig = px.bar(title='No Regional Data Available')
+        region_fig.update_layout(showlegend=False)
+        
+        # 5. Vintage Analysis
+        vintage_filtered = filtered_df[filtered_df['Vintage'].notna()]
+        if len(vintage_filtered) > 0:
+            vintage_data = vintage_filtered.groupby('Vintage')['Purchase price'].mean()
+            vintage_fig = px.scatter(x=vintage_data.index, y=vintage_data.values,
+                                   title='Average Price by Vintage',
+                                   labels={'x': 'Vintage', 'y': 'Average Price (£)'})
+        else:
+            vintage_fig = px.scatter(title='No Vintage Data Available')
+        vintage_fig.update_layout(showlegend=False)
+        
+        # 6. Monthly Pattern
+        monthly_data = filtered_df.groupby('Purchase_Month')['Purchase price'].sum()
+        if len(monthly_data) > 0:
+            monthly_fig = px.bar(x=monthly_data.index, y=monthly_data.values,
+                                title='Total Spending by Month',
+                                labels={'x': 'Month', 'y': 'Total Spent (£)'})
+        else:
+            monthly_fig = px.bar(title='No Monthly Data Available')
+        monthly_fig.update_layout(showlegend=False)
+        
+        # 7. Table data
+        table_data = pd.DataFrame(filtered_df[['Product name', 'Product code', 'Purchase date', 'Purchase price', 
+                                 'Wine_Type', 'Vintage', 'Region_Code']]).to_dict('records')
+        
+        return timeline_fig, pie_fig, price_fig, region_fig, vintage_fig, monthly_fig, table_data
+        
+    except Exception as e:
+        print(f"Error in update_charts: {e}")
+        # Return empty figures on error
+        empty_fig = px.scatter(title="Error occurred")
+        empty_pie = px.pie(values=[1], names=['Error'], title="Error occurred")
+        empty_hist = px.histogram(title="Error occurred")
+        empty_bar = px.bar(title="Error occurred")
+        empty_scatter = px.scatter(title="Error occurred")
+        empty_monthly = px.bar(title="Error occurred")
+        
+        return empty_fig, empty_pie, empty_hist, empty_bar, empty_scatter, empty_monthly, []
 
 # Add custom CSS
 app.index_string = '''
