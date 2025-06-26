@@ -207,7 +207,7 @@ app.layout = html.Div(
                     "Detailed Purchase Data",
                     style={"textAlign": "center", "marginTop": 30},
                 ),
-                dash_table.DataTable(
+                dash_table.DataTable(  # type: ignore
                     id="wine-table",
                     columns=[
                         {"name": "Product Name", "id": "Product name"},
@@ -261,7 +261,7 @@ app.layout = html.Div(
         Input("year-slider", "value"),
     ],
 )
-def update_charts(wine_type: str, price_range: tuple, year_range: tuple):
+def update_charts(wine_type: str, price_range: str, year_range: tuple) -> tuple:
     try:
         # Filter the dataframe
         filtered_df: pd.DataFrame = df.copy()
