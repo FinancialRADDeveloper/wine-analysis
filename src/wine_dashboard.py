@@ -1,10 +1,7 @@
 import dash
 from dash import dcc, html, Input, Output, dash_table
 import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pandas as pd
-import numpy as np
 from wine_soc_data_analysis import load_wine_data, clean_wine_data, get_data_summary
 
 # Load and prepare the data
@@ -264,7 +261,7 @@ app.layout = html.Div(
         Input("year-slider", "value"),
     ],
 )
-def update_charts(wine_type, price_range, year_range):
+def update_charts(wine_type: str, price_range: tuple, year_range: tuple):
     try:
         # Filter the dataframe
         filtered_df: pd.DataFrame = df.copy()

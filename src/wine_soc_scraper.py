@@ -1,7 +1,6 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import getpass
 from dotenv import load_dotenv
 from bs4.element import Tag
 
@@ -17,7 +16,7 @@ LOGIN_URL = "https://www.thewinesociety.com/login"
 ORDER_HISTORY_URL = "https://www.thewinesociety.com/my-account/order-history/?page=1&months=500&epmonths=300&isEnPrimeur=False"
 
 
-def login(session, email, password):
+def login(session: requests.Session, email: str, password: str) -> bool:
     # Get login page (to get cookies and any hidden fields)
     resp = session.get(LOGIN_URL)
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -42,7 +41,7 @@ def login(session, email, password):
     return True
 
 
-def fetch_order_links(session):
+def fetch_order_links(session: requests.Session) -> list[str]:
     resp = session.get(ORDER_HISTORY_URL)
     soup = BeautifulSoup(resp.text, "html.parser")
     order_links = []
@@ -55,7 +54,7 @@ def fetch_order_links(session):
     return order_links
 
 
-def main():
+def main() -> None:
     print("Wine Society scraper starting...")
 
     # Get email and password from .env file

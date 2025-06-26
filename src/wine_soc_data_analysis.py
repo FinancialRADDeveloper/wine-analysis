@@ -1,9 +1,6 @@
 import pandas as pd
-import numpy as np
 import re
-from datetime import datetime
 import os
-from pandas import Series
 
 # File paths
 CSV_FILE = os.path.join(
@@ -115,7 +112,7 @@ def clean_wine_data(df: pd.DataFrame) -> pd.DataFrame:
     df_clean["Purchase_Quarter"] = df_clean["Purchase date"].dt.quarter
 
     # Clean drink date - extract years if present
-    def extract_drink_years(drink_date):
+    def extract_drink_years(drink_date: str) -> int | None:
         if pd.isna(drink_date) or drink_date == "" or drink_date == "0 - 0":
             return None
         # Extract years from format like "2017 - 2021" or "2020 - 2023"
