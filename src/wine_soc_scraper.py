@@ -64,7 +64,9 @@ def main() -> None:
 
     # Check if credentials are available
     if not email or not password:
-        print("Error: WINE_SOCIETY_EMAIL and WINE_SOCIETY_PASSWORD must be set in .env file")
+        print(
+            "Error: WINE_SOCIETY_EMAIL and WINE_SOCIETY_PASSWORD must be set in .env file"
+        )
         return
 
     session = requests.Session()
