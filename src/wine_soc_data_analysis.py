@@ -3,6 +3,7 @@ import numpy as np
 import re
 from datetime import datetime
 import os
+from pandas import Series
 
 # File paths
 CSV_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Data', 'WineSociety', 'raw', 'TWS_Members_Wines_CSV_638865531904137428.csv')
@@ -24,10 +25,10 @@ def clean_wine_data(df: pd.DataFrame) -> pd.DataFrame:
     Clean and prepare the wine data for analysis
     """
     # Create a copy to avoid modifying the original
-    df_clean = df.copy()
+    df_clean: pd.DataFrame = df.copy()
     
     # Clean product names - remove empty entries
-    df_clean = df_clean[df_clean['Product name'].notna() & (df_clean['Product name'] != '')]
+    df_clean = pd.DataFrame(df_clean[df_clean['Product name'].notna() & (df_clean['Product name'] != '')])
     
     # Convert purchase date to datetime
     df_clean['Purchase date'] = pd.to_datetime(df_clean['Purchase date'], format='%m/%d/%Y', errors='coerce')
@@ -36,10 +37,10 @@ def clean_wine_data(df: pd.DataFrame) -> pd.DataFrame:
     df_clean['Purchase price'] = pd.to_numeric(df_clean['Purchase price'], errors='coerce')
     
     # Extract year from product names for vintage analysis
-    df_clean['Vintage'] = df_clean['Product name'].str.extract(r'(\d{4})').astype(float)
+    df_clean['Vintage'] = df_clean['Product name'].astype(str).str.extract(r'(\d{4})').astype(float)
     
     # Extract wine region/country from product codes
-    df_clean['Region_Code'] = df_clean['Product code'].str[:2]
+    df_clean['Region_Code'] = df_clean['Product code'].astype(str).str[:2]
     
     # Create wine type categories based on product codes
     wine_type_mapping = {
@@ -81,7 +82,7 @@ def clean_wine_data(df: pd.DataFrame) -> pd.DataFrame:
         'LC': 'Mixed Case',  # Mixed Cases
     }
     
-    df_clean['Wine_Type'] = df_clean['Region_Code'].map(wine_type_mapping).fillna('Other')
+    df_clean['Wine_Type'] = df_clean['Region_Code'].replace(wine_type_mapping).fillna('Other')
     
     # Create price categories
     df_clean['Price_Category'] = pd.cut(df_clean['Purchase price'], 
