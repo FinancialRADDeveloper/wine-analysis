@@ -7,6 +7,15 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 from dataclasses import dataclass, asdict
 import os
+import logging
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+log = logging.getLogger('wine_soc_scraper')
 
 @dataclass
 class OrderDetail:
@@ -93,7 +102,7 @@ class WineSocietyOrderScraperSelenium:
         """
         orders = []
         view_buttons = self.get_order_view_buttons()
-        print(f"Found {len(view_buttons)} orders.")
+        log.info(f"Found {len(view_buttons)} orders.")
         for _, btn in enumerate(view_buttons):
             # Open order detail in a new tab
             self.driver.execute_script("window.open('');")
@@ -129,22 +138,42 @@ class WineSocietyOrderScraperSelenium:
             try:
                 order_number_elem = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Order No') or contains(text(), 'Order number') or contains(text(), 'Order #') or contains(text(), 'Order no') or contains(text(), 'OrderNo') or contains(text(), 'OrderNumber')]")
                 order_number = order_number_elem.text
+                # Strip out "Order No:" and similar prefixes
+                for prefix in ["Order No:", "Order number:", "Order #:", "Order no:", "OrderNo:", "OrderNumber:"]:
+                    if order_number.startswith(prefix):
+                        order_number = order_number[len(prefix):].strip()
+                        break
             except Exception:
                 order_number = None
+                log.error("Order Number could not be found on the order detail page.")
 
             # Extract order date (look for 'Date:' or similar)
             try:
-                order_date_elem = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Date:')]")
-                order_date = order_date_elem.text
+                # Find the <div> with class 'order-toolbar__text-column' containing the 'Date placed' title,
+                # then get the <p> tag inside it for the actual date value.
+                order_date_div = self.driver.find_element(
+                    By.XPATH,
+                    "//div[contains(@class, 'order-toolbar__text-column')][.//h3[contains(@class, 'order-toolbar__text-column-title') and contains(normalize-space(), 'Date placed')]]"
+                )
+                order_date_p = order_date_div.find_element(By.TAG_NAME, "p")
+                order_date = order_date_p.text.strip()
             except Exception:
                 order_date = None
+                log.error("Order Date could not be found on the order detail page.")
 
             # Extract order total (look for 'Order total:' or similar)
+                # Find the <div> with class 'order-toolbar__text-column' containing the 'Order total:' title,
+                # then get the <p> tag inside it for the actual total value.
             try:
-                order_total_elem = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Order total:')]")
-                order_total = order_total_elem.text
+                order_total_div = self.driver.find_element(
+                    By.XPATH,
+                    "//div[contains(@class, 'order-toolbar__text-column')][.//h3[contains(@class, 'order-toolbar__text-column-title') and contains(normalize-space(), 'Order total')]]"
+                )
+                order_total_p = order_total_div.find_element(By.TAG_NAME, "p")
+                order_total = order_total_p.text.strip()
             except Exception:
                 order_total = None
+                log.error("Order Total could not be found on the order detail page.")
 
             # 1. Save the page as PDF
             pdf_path = os.path.join(output_dir, f"{order_number or 'unknown_order'}.pdf")
@@ -161,6 +190,7 @@ class WineSocietyOrderScraperSelenium:
                     if href:
                         receipts.append(href)
                         self.driver.execute_script(f"window.open('{href}', '_blank');")
+                        log.info(f"Opened receipt link: {href}")
                 # Wine notes
                 notes_links = self.driver.find_elements(
                     By.XPATH,
@@ -172,8 +202,9 @@ class WineSocietyOrderScraperSelenium:
                     if href:
                         wine_notes.append(href)
                         self.driver.execute_script(f"window.open('{href}', '_blank');")
+                        log.info(f"Opened wine notes link: {href}")
             except Exception as e:
-                print(f"Error downloading receipt or notes: {e}")
+                log.error(f"Error downloading receipt or notes: {e}")
 
             # 3. Follow wine links (collect links)
             wine_links = []
@@ -184,21 +215,21 @@ class WineSocietyOrderScraperSelenium:
                     if href:
                         wine_links.append(href)
                         self.driver.execute_script(f"window.open('{href}', '_blank');")
-                        print(f"Opened wine link: {href}")
+                        log.info(f"Opened wine link: {href}")
                         self.driver.switch_to.window(self.driver.window_handles[-1])
                         time.sleep(1)  # Simulate scraping
                         self.driver.close()
                         self.driver.switch_to.window(self.driver.window_handles[0])
             except Exception as e:
-                print(f"Error following wine links: {e}")
+                log.error(f"Error following wine links: {e}")
 
-            print(f"Order Number: {order_number}")
-            print(f"Order Date: {order_date}")
-            print(f"Order Total: {order_total}")
-            print(f"PDF Path: {pdf_path}")
-            print(f"Receipts: {receipts}")
-            print(f"Wine Notes: {wine_notes}")
-            print(f"Wine Links: {wine_links}")
+            log.info(f"Order Number: {order_number}")
+            log.info(f"Order Date: {order_date}")
+            log.info(f"Order Total: {order_total}")
+            log.info(f"PDF Path: {pdf_path}")
+            log.info(f"Receipts: {receipts}")
+            log.info(f"Wine Notes: {wine_notes}")
+            log.info(f"Wine Links: {wine_links}")
 
             return OrderDetail(
                 order_number=order_number,
@@ -211,7 +242,7 @@ class WineSocietyOrderScraperSelenium:
                 wine_links=wine_links
             )
         except Exception as e:
-            print(f"Error extracting order details: {e}")
+            log.error(f"Error extracting order details: {e}")
             return None
 
     def save_order_page_as_pdf(self, output_path: str):
@@ -224,9 +255,9 @@ class WineSocietyOrderScraperSelenium:
             pdf = self.driver.execute_cdp_cmd("Page.printToPDF", {"printBackground": True})
             with open(output_path, "wb") as f:
                 f.write(bytes.fromhex(pdf["data"]))
-            print(f"Saved PDF to {output_path}")
+            log.info(f"Saved PDF to {output_path}")
         except Exception as e:
-            print(f"Error saving PDF: {e}")
+            log.error(f"Error saving PDF: {e}")
 
     def download_receipt_and_notes(self, download_dir: str):
         """
@@ -240,7 +271,7 @@ class WineSocietyOrderScraperSelenium:
                 href = link.get_attribute("href")
                 if href:
                     self.driver.execute_script(f"window.open('{href}', '_blank');")
-                    print(f"Opened receipt link: {href}")
+                    log.info(f"Opened receipt link: {href}")
             # Find and click/download wine notes
             # The alphabet is used in the XPath to make the text search case-insensitive.
             # However, Selenium 4+ and modern browsers support the 'translate' function, but for clarity, let's simplify:
@@ -255,9 +286,9 @@ class WineSocietyOrderScraperSelenium:
                 href = link.get_attribute("href")
                 if href:
                     self.driver.execute_script(f"window.open('{href}', '_blank');")
-                    print(f"Opened wine notes link: {href}")
+                    log.info(f"Opened wine notes link: {href}")
         except Exception as e:
-            print(f"Error downloading receipt or notes: {e}")
+            log.error(f"Error downloading receipt or notes: {e}")
 
     def follow_wine_links(self):
         """
@@ -270,14 +301,14 @@ class WineSocietyOrderScraperSelenium:
                 href = link.get_attribute("href")
                 if href:
                     self.driver.execute_script(f"window.open('{href}', '_blank');")
-                    print(f"Opened wine link: {href}")
+                    log.info(f"Opened wine link: {href}")
                     # Optionally, switch to new tab and scrape, then close
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                     time.sleep(1)  # Simulate scraping
                     self.driver.close()
                     self.driver.switch_to.window(self.driver.window_handles[0])
         except Exception as e:
-            print(f"Error following wine links: {e}")
+            log.error(f"Error following wine links: {e}")
 
 def main():
     import os
