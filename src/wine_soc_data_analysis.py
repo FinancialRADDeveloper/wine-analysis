@@ -57,42 +57,42 @@ def clean_wine_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # Create wine type categories based on product codes
     wine_type_mapping = {
-        "RH": "Red Wine",
-        "BU": "Red Wine",  # Burgundy
-        "BJ": "Red Wine",  # Beaujolais
-        "CS": "Red Wine",  # Côtes de Saint-Emilion
-        "CM": "Red Wine",  # Médoc
-        "CB": "Red Wine",  # Bordeaux
-        "FC": "Red Wine",  # France Country
-        "SP": "Red Wine",  # Spain
-        "IT": "Red Wine",  # Italy
-        "US": "Red Wine",  # USA
-        "AU": "Red Wine",  # Australia
-        "SA": "Red Wine",  # South Africa
-        "AR": "Red Wine",  # Argentina
-        "CE": "Red Wine",  # Chile
-        "PW": "Red Wine",  # Portugal
-        "GE": "Red Wine",  # Germany
-        "HU": "Red Wine",  # Hungary
-        "BG": "Red Wine",  # Bulgaria
-        "MD": "Red Wine",  # Moldova
-        "SL": "Red Wine",  # Slovenia
-        "TU": "Red Wine",  # Turkey
-        "LO": "White Wine",  # Loire
-        "SG": "Sparkling",  # Sparkling
-        "SH": "Fortified",  # Sherry
-        "PN": "Fortified",  # Port
-        "BW": "Sweet Wine",  # Sweet Wine
-        "EN": "White Wine",  # English
-        "NZ": "White Wine",  # New Zealand
-        "AL": "White Wine",  # Alsace
-        "AA": "White Wine",  # Austria
-        "GR": "Sweet Wine",  # Greece
-        "OC": "Mixed Case",  # Mixed Cases
-        "MX": "Mixed Case",  # Mixed Cases
-        "XC": "Mixed Case",  # Mixed Cases
-        "WC": "Mixed Case",  # Mixed Cases
-        "LC": "Mixed Case",  # Mixed Cases
+        "RH": "Rhône",
+        "BU": "Burgundy",
+        "BJ": "Beaujolais",
+        "CS": "Côtes de Saint-Emilion",
+        "CM": "Médoc",
+        "CB": "Bordeaux",
+        "FC": "France Country",
+        "SP": "Spain",
+        "IT": "Italy",
+        "US": "USA",
+        "AU": "Australia",
+        "SA": "South Africa",
+        "AR": "Argentina",
+        "CE": "Chile",
+        "PW": "Portugal",
+        "GE": "Germany",
+        "HU": "Hungary",
+        "BG": "Bulgaria",
+        "MD": "Moldova",
+        "SL": "Slovenia",
+        "TU": "Turkey",
+        "LO": "Loire",
+        "SG": "Sparkling",
+        "SH": "Sherry",
+        "PN": "Port",
+        "BW": "Sweet Wine",
+        "EN": "English",
+        "NZ": "New Zealand",
+        "AL": "Alsace",
+        "AA": "Austria",
+        "GR": "Greece",
+        "OC": "Mixed Cases",
+        "MX": "Mixed Cases",
+        "XC": "Food Hamper",
+        "WC": "Mixed Cases",
+        "LC": "Mixed Cases",
     }
 
     df_clean["Wine_Type"] = (
