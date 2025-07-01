@@ -85,7 +85,7 @@ app.layout = html.Div(
                         html.Label("Wine Type:"),
                         dcc.Dropdown(
                             id="wine-type-filter",
-                            options=[{"label": "All Types", "value": "All"}]  # type: ignore
+                            options=[{"label": "All Types", "value": "All"}]
                             + [
                                 {"label": str(wine_type), "value": str(wine_type)}
                                 for wine_type in sorted(df["Wine_Type"].unique())
@@ -105,7 +105,7 @@ app.layout = html.Div(
                         html.Label("Price Range:"),
                         dcc.Dropdown(
                             id="price-filter",
-                            options=[{"label": "All Prices", "value": "All"}]  # type: ignore
+                            options=[{"label": "All Prices", "value": "All"}]
                             + [
                                 {"label": str(price_cat), "value": str(price_cat)}
                                 for price_cat in sorted(
@@ -207,7 +207,7 @@ app.layout = html.Div(
                     "Detailed Purchase Data",
                     style={"textAlign": "center", "marginTop": 30},
                 ),
-                dash_table.DataTable(  # type: ignore
+                dash_table.DataTable(
                     id="wine-table",
                     columns=[
                         {"name": "Product Name", "id": "Product name"},
@@ -245,7 +245,7 @@ app.layout = html.Div(
 
 
 # Callback to filter data
-@app.callback(
+@app.callback(  # type: ignore
     [
         Output("purchase-timeline", "figure"),
         Output("wine-type-pie", "figure"),

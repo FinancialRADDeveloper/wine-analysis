@@ -174,7 +174,8 @@ def main() -> pd.DataFrame:
         f"Price range: £{summary['price_range'][0]:.2f} - £{summary['price_range'][1]:.2f}"
     )
     print(
-        f"Date range: {summary['date_range'][0].strftime('%Y-%m-%d')} to {summary['date_range'][1].strftime('%Y-%m-%d')}"
+        f"Date range: {summary['date_range'][0].strftime('%Y-%m-%d')}"
+        f"to {summary['date_range'][1].strftime('%Y-%m-%d')}"
     )
     print(
         f"Vintage range: {summary['vintage_range'][0]:.0f} - {summary['vintage_range'][1]:.0f}"
