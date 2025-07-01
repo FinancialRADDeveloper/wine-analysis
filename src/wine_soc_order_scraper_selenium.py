@@ -340,7 +340,6 @@ class WineSocietyOrderScraperSelenium:
             order_data = self.handle_order_detail_page()
             if order_data:
                 orders.append(order_data)
-            self.driver.close()
             self.driver.switch_to.window(main_window)
         return orders
 
