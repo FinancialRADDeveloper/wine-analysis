@@ -1,3 +1,4 @@
 # Ignore environment variable files
 .env 
 src/__pycache__/wine_soc_data_analysis.cpython-313.pyc
+order_details/
