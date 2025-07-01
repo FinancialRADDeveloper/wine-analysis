@@ -148,13 +148,16 @@ class WineSocietyOrderScraperSelenium:
                 log.error("Order Number could not be found on the order detail page.")
 
             # Extract order date (look for 'Date:' or similar)
+
+            # Find the <div> with class 'order-toolbar__text-column' containing the 'Date placed' title,
+            # then get the <p> tag inside it for the actual date value.
             try:
-                # Find the <div> with class 'order-toolbar__text-column' containing the 'Date placed' title,
-                # then get the <p> tag inside it for the actual date value.
-                order_date_div = self.driver.find_element(
+                # Find the <h3> with the text "Date placed", then get its parent <div> and the following <p>
+                order_date_h3 = self.driver.find_element(
                     By.XPATH,
-                    "//div[contains(@class, 'order-toolbar__text-column')][.//h3[contains(@class, 'order-toolbar__text-column-title') and contains(normalize-space(), 'Date placed')]]"
+                    "//h3[contains(@class, 'order-toolbar__text-column-title') and contains(normalize-space(), 'Date placed')]"
                 )
+                order_date_div = order_date_h3.find_element(By.XPATH, "./parent::div")
                 order_date_p = order_date_div.find_element(By.TAG_NAME, "p")
                 order_date = order_date_p.text.strip()
             except Exception:
@@ -253,8 +256,9 @@ class WineSocietyOrderScraperSelenium:
         # This requires the DevTools Protocol; Selenium 4+ supports it
         try:
             pdf = self.driver.execute_cdp_cmd("Page.printToPDF", {"printBackground": True})
+            import base64
             with open(output_path, "wb") as f:
-                f.write(bytes.fromhex(pdf["data"]))
+                f.write(base64.b64decode(pdf["data"]))
             log.info(f"Saved PDF to {output_path}")
         except Exception as e:
             log.error(f"Error saving PDF: {e}")
