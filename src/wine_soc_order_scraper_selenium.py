@@ -97,7 +97,9 @@ class WineSocietyOrderScraperSelenium:
         Find all 'View' buttons on the order history page.
         Returns a list of WebElement objects.
         """
-        return self.driver.find_elements(By.XPATH, "//button[text()='View']")  # type: ignore
+        return self.driver.find_elements(  # type: ignore
+            By.XPATH, "//a[normalize-space(text())='View' and contains(@class, 'btn')]"
+        )
 
     def save_order_page_as_pdf(self, output_path: str) -> None:
         """
@@ -319,22 +321,27 @@ class WineSocietyOrderScraperSelenium:
     def scrape_all_orders(self) -> List[OrderDetail]:
         """
         Main method to scrape all orders using Selenium.
+        Opens each order detail page in a new tab, scrapes, closes, and returns to main tab.
         """
         orders: List[OrderDetail] = []
-        view_buttons = self.get_order_view_buttons()
-        log.info(f"Found {len(view_buttons)} orders.")
-        for _, btn in enumerate(view_buttons):
-            self.driver.execute_script("window.open('');")
-            self.driver.switch_to.window(self.driver.window_handles[-1])
-            self.driver.switch_to.window(self.driver.window_handles[0])
-            self.driver.execute_script("arguments[0].click();", btn)
-            time.sleep(2)
+        view_links = self.get_order_view_buttons()
+        log.info(f"Found {len(view_links)} orders.")
+        # Collect all hrefs first
+        hrefs = []
+        for link in view_links:
+            href = link.get_attribute("href")
+            if href:
+                hrefs.append(href)
+        main_window = self.driver.current_window_handle
+        for href in hrefs:
+            # Open order detail in a new tab
+            self.driver.execute_script(f"window.open('{href}', '_blank');")
             self.driver.switch_to.window(self.driver.window_handles[-1])
             order_data = self.handle_order_detail_page()
             if order_data:
                 orders.append(order_data)
             self.driver.close()
-            self.driver.switch_to.window(self.driver.window_handles[0])
+            self.driver.switch_to.window(main_window)
         return orders
 
     def close(self) -> None:
