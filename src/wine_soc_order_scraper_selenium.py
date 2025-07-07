@@ -254,6 +254,52 @@ class WineSocietyOrderScraperSelenium:
             log.error(f"Error extracting order total from div: {e}")
             return None
 
+    def download_receipt_pdfs_from_page(self) -> list[str]:
+        """
+        Find all receipt download buttons on the page, extract their URLs, and trigger downloads.
+        Returns a list of the receipt URLs found.
+        """
+        receipt_links = []
+        try:
+            # Find the button with the correct class and text for "Download receipt"
+            receipt_buttons = self.driver.find_elements(
+                By.XPATH,
+                (
+                    "//div[contains(@class,'order-toolbar__row')]//button[contains(@class,'btn') "
+                    "and contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), "
+                    "'download receipt')]"
+                ),
+            )
+
+            for btn in receipt_buttons:
+                onclick = btn.get_attribute("onclick")
+                if onclick and "location.href=" in onclick:
+                    # Extract the URL from the onclick attribute
+                    url_part = onclick.split("location.href=")[1].strip().strip("'\";")
+                    # If the URL is relative, prepend the base URL
+                    if url_part.startswith("/"):
+                        base_url = (
+                            self.driver.current_url.split("/")[0]
+                            + "//"
+                            + self.driver.current_url.split("/")[2]
+                        )
+                        full_url = base_url + url_part
+                    else:
+                        full_url = url_part
+                    receipt_links.append(full_url)
+
+            # log a warning if the receipt links are not found
+            if not receipt_links:
+                log.warning("No receipt link found on the order detail page.")
+            else:
+                # download the receipt pdfs
+                for link in receipt_links:
+                    self.download_receipt_pdf(link)
+        except Exception as e:
+            log.error(f"Error downloading receipt or notes: {e}")
+
+        return receipt_links
+
     def handle_order_detail_page(
         self, output_dir: str = "order_details"
     ) -> Optional[OrderDetail]:
@@ -323,48 +369,8 @@ class WineSocietyOrderScraperSelenium:
             )
             self.save_order_page_as_pdf(pdf_path)
 
-            # 2. Download receipt and wine notes (collect links)
-            receipt_links = []
-            try:
-                # Find the button with the correct class and text for "Download receipt"
-                receipt_buttons = self.driver.find_elements(
-                    By.XPATH,
-                    (
-                        "//div[contains(@class,'order-toolbar__row')]//button[contains(@class,'btn') "
-                        "and contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), "
-                        "'download receipt')]"
-                    ),
-                )
-
-                for btn in receipt_buttons:
-                    onclick = btn.get_attribute("onclick")
-                    if onclick and "location.href=" in onclick:
-                        # Extract the URL from the onclick attribute
-                        url_part = (
-                            onclick.split("location.href=")[1].strip().strip("'\";")
-                        )
-                        # If the URL is relative, prepend the base URL
-                        if url_part.startswith("/"):
-                            base_url = (
-                                self.driver.current_url.split("/")[0]
-                                + "//"
-                                + self.driver.current_url.split("/")[2]
-                            )
-                            full_url = base_url + url_part
-                        else:
-                            full_url = url_part
-                        receipt_links.append(full_url)
-
-                # log a warning if the receipt links are not found
-                if not receipt_links:
-                    log.warning("No receipt link found on the order detail page.")
-                else:
-                    # download the receipt pdfs
-                    for link in receipt_links:
-                        self.download_receipt_pdf(link)
-
-            except Exception as e:
-                log.error(f"Error downloading receipt or notes: {e}")
+            # 2. Download receipt (collect links)
+            receipt_links = self.download_receipt_pdfs_from_page()
 
             # 3. Download wine notes using the new function
             wine_notes_links: List[str] = []
