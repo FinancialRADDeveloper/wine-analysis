@@ -14,6 +14,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import re
 
 # Set up logging
 logging.basicConfig(
@@ -34,6 +35,7 @@ class OrderDetail:
     receipts: List[str]
     wine_notes: List[str]
     wine_links: List[str]
+    download_dir: str = "Data"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -44,8 +46,18 @@ class WineSocietyOrderScraperSelenium:
         self.username = username
         self.password = password
         self.start_url = start_url
+        self.download_dir = OrderDetail.download_dir
         chrome_options = Options()
         chrome_options.add_argument("--start-maximized")
+        chrome_options.add_experimental_option(
+            "prefs",
+            {
+                "download.default_directory": os.path.abspath(self.download_dir),
+                "download.prompt_for_download": False,
+                "download.directory_upgrade": True,
+                "plugins.always_open_pdf_externally": True,
+            },
+        )
         self.driver = webdriver.Chrome(options=chrome_options)
         self.wait = WebDriverWait(self.driver, 20)
 
@@ -116,36 +128,76 @@ class WineSocietyOrderScraperSelenium:
         except Exception as e:
             log.error(f"Error saving PDF: {e}")
 
-    def download_receipt_and_notes(self, download_dir: str) -> None:
+    def download_receipt_pdf(self, receipt_url: str, sleep_time: int = 5) -> None:
         """
-        Download the receipt and wine notes from the order detail page.
-        Looks for links/buttons with text like 'Download receipt', 'Download wine notes', etc.
+        Download the receipt PDF from the given URL and save it to Data/receipts.
+        The filename will be based on the order number in the URL.
         """
         try:
-            receipt_links = self.driver.find_elements(
-                By.XPATH,
-                "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-                "'abcdefghijklmnopqrstuvwxyz'), 'receipt')]",
+            self.driver.get(receipt_url)
+
+            log.info(
+                "Waiting for download to initiate and complete... (this might take a few seconds)"
             )
-            for link in receipt_links:
-                href = link.get_attribute("href")
-                if href:
-                    self.driver.execute_script(f"window.open('{href}', '_blank');")
-                    log.info(f"Opened receipt link: {href}")
-            notes_links = self.driver.find_elements(
-                By.XPATH,
-                "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-                "'abcdefghijklmnopqrstuvwxyz'), 'wine note') or "
-                "contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-                "'abcdefghijklmnopqrstuvwxyz'), 'tasting note')]",
+            time.sleep(
+                sleep_time
+            )  # Increased sleep slightly as a precaution. Adjust as needed.
+
+            # Optional: You could add logic here to list files in download_dir
+            # and check if a new PDF has appeared with a relevant filename.
+            # This would require more sophisticated file system monitoring.
+
+            log.info(
+                "Expected file name will likely be something like 'Invoice-TWSWEB-13480088.pdf' or similar."
             )
-            for link in notes_links:
-                href = link.get_attribute("href")
-                if href:
-                    self.driver.execute_script(f"window.open('{href}', '_blank');")
-                    log.info(f"Opened wine notes link: {href}")
+            # dont switch back as we need to later process the
+            # self.driver.switch_to.window(self.driver.window_handles[0])
+
         except Exception as e:
-            log.error(f"Error downloading receipt or notes: {e}")
+            log.error(f"Error downloading receipt: {e}")
+
+    def download_wine_notes_from_toolbar(self, sleep_time: int = 5) -> Optional[str]:
+        """
+        Find the 'Download wine notes' button in the toolbar, extract the download URL,
+        and trigger the download via Selenium.
+        Returns the download URL if found and triggered, else None.
+        """
+        try:
+            toolbar_div = self.driver.find_element(
+                By.XPATH,
+                "//div[contains(@class, 'order-toolbar__group--pull-right') "
+                "and contains(@class, 'order-toolbar__actions')]",
+            )
+            # Find all button elements within the div
+            buttons = toolbar_div.find_elements(By.TAG_NAME, "button")
+            for button in buttons:
+                onclick = button.get_attribute("onclick")
+                if onclick and "DownloadWineNotesPdf" in onclick:
+                    # Extract the URL from the onclick attribute
+                    match = re.search(
+                        r"location\.href\s*=\s*['\"]([^'\"]+)['\"]", onclick
+                    )
+                    if match:
+                        url_part = match.group(1)
+                        # If the URL is relative, prepend the base URL
+                        if url_part.startswith("/"):
+                            base_url = (
+                                self.driver.current_url.split("/")[0]
+                                + "//"
+                                + self.driver.current_url.split("/")[2]
+                            )
+                            full_url = base_url + url_part
+                        else:
+                            full_url = url_part
+                        log.info(f"Triggering download of wine notes from: {full_url}")
+                        self.driver.get(full_url)
+                        time.sleep(sleep_time)
+                        return full_url
+            log.warning("No 'Download wine notes' button found in toolbar.")
+            return None
+        except Exception as e:
+            log.error(f"Error downloading wine notes from toolbar: {e}")
+            return None
 
     def follow_wine_links(self) -> None:
         """
@@ -168,6 +220,40 @@ class WineSocietyOrderScraperSelenium:
         except Exception as e:
             log.error(f"Error following wine links: {e}")
 
+    def extract_order_number_from_element(self, order_number_elem) -> str | None:
+        order_number = order_number_elem.text
+        log.info(f"Order number text found: {order_number}")
+        for prefix in [
+            "Order No:",
+            "Order number:",
+            "Order #:",
+            "Order no:",
+            "OrderNo:",
+            "OrderNumber:",
+        ]:
+            if order_number.startswith(prefix):
+                log.info(f"Stripping off Order No: {prefix} from {order_number}")
+                order_number = order_number[len(prefix) :].strip()  # noqa: E203
+                break
+        return order_number
+
+    def extract_order_date_from_h3(self, order_date_h3) -> str | None:
+        try:
+            order_date_div = order_date_h3.find_element(By.XPATH, "./parent::div")
+            order_date_p = order_date_div.find_element(By.TAG_NAME, "p")
+            return order_date_p.text.strip()
+        except Exception as e:
+            log.error(f"Error extracting order date from h3: {e}")
+            return None
+
+    def extract_order_total_from_div(self, order_total_div) -> str | None:
+        try:
+            order_total_p = order_total_div.find_element(By.TAG_NAME, "p")
+            return order_total_p.text.strip()
+        except Exception as e:
+            log.error(f"Error extracting order total from div: {e}")
+            return None
+
     def handle_order_detail_page(
         self, output_dir: str = "order_details"
     ) -> Optional[OrderDetail]:
@@ -184,7 +270,7 @@ class WineSocietyOrderScraperSelenium:
                 time.sleep(1)
         except Exception:
             pass
-        os.makedirs(output_dir, exist_ok=True)
+
         try:
             self.wait.until(
                 EC.presence_of_element_located(
@@ -204,21 +290,11 @@ class WineSocietyOrderScraperSelenium:
                     "or contains(text(), 'Order #') or contains(text(), 'Order no') "
                     "or contains(text(), 'OrderNo') or contains(text(), 'OrderNumber')]",
                 )
-                order_number = order_number_elem.text
-                for prefix in [
-                    "Order No:",
-                    "Order number:",
-                    "Order #:",
-                    "Order no:",
-                    "OrderNo:",
-                    "OrderNumber:",
-                ]:
-                    if order_number.startswith(prefix):
-                        order_number = order_number[len(prefix) :].strip()  # noqa: E203
-                        break
+                order_number = self.extract_order_number_from_element(order_number_elem)
             except Exception:
                 order_number = None
                 log.error("Order Number could not be found on the order detail page.")
+
             # Extract order date
             try:
                 order_date_h3 = self.driver.find_element(
@@ -226,9 +302,7 @@ class WineSocietyOrderScraperSelenium:
                     "//h3[contains(@class, 'order-toolbar__text-column-title') "
                     "and contains(normalize-space(), 'Date placed')]",
                 )
-                order_date_div = order_date_h3.find_element(By.XPATH, "./parent::div")
-                order_date_p = order_date_div.find_element(By.TAG_NAME, "p")
-                order_date = order_date_p.text.strip()
+                order_date = self.extract_order_date_from_h3(order_date_h3)
             except Exception:
                 order_date = None
                 log.error("Order Date could not be found on the order detail page.")
@@ -239,8 +313,7 @@ class WineSocietyOrderScraperSelenium:
                     "//div[contains(@class, 'order-toolbar__text-column')][.//h3[contains(@class, "
                     "'order-toolbar__text-column-title') and contains(normalize-space(), 'Order total')]]",
                 )
-                order_total_p = order_total_div.find_element(By.TAG_NAME, "p")
-                order_total = order_total_p.text.strip()
+                order_total = self.extract_order_total_from_div(order_total_div)
             except Exception:
                 order_total = None
                 log.error("Order Total could not be found on the order detail page.")
@@ -249,70 +322,75 @@ class WineSocietyOrderScraperSelenium:
                 output_dir, f"{order_number or 'unknown_order'}.pdf"
             )
             self.save_order_page_as_pdf(pdf_path)
+
             # 2. Download receipt and wine notes (collect links)
-            receipts: List[str] = []
-            wine_notes: List[str] = []
+            receipt_links = []
             try:
-                receipt_links = self.driver.find_elements(
+                # Find the button with the correct class and text for "Download receipt"
+                receipt_buttons = self.driver.find_elements(
                     By.XPATH,
-                    "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-                    "'abcdefghijklmnopqrstuvwxyz'), 'receipt')]",
+                    (
+                        "//div[contains(@class,'order-toolbar__row')]//button[contains(@class,'btn') "
+                        "and contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), "
+                        "'download receipt')]"
+                    ),
                 )
-                for link in receipt_links:
-                    href = link.get_attribute("href")
-                    if href:
-                        receipts.append(href)
-                        self.driver.execute_script(f"window.open('{href}', '_blank');")
-                        log.info(f"Opened receipt link: {href}")
-                notes_links = self.driver.find_elements(
-                    By.XPATH,
-                    "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-                    "'abcdefghijklmnopqrstuvwxyz'), 'wine note') or "
-                    "contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-                    "'abcdefghijklmnopqrstuvwxyz'), 'tasting note')]",
-                )
-                for link in notes_links:
-                    href = link.get_attribute("href")
-                    if href:
-                        wine_notes.append(href)
-                        self.driver.execute_script(f"window.open('{href}', '_blank');")
-                        log.info(f"Opened wine notes link: {href}")
+
+                for btn in receipt_buttons:
+                    onclick = btn.get_attribute("onclick")
+                    if onclick and "location.href=" in onclick:
+                        # Extract the URL from the onclick attribute
+                        url_part = (
+                            onclick.split("location.href=")[1].strip().strip("'\";")
+                        )
+                        # If the URL is relative, prepend the base URL
+                        if url_part.startswith("/"):
+                            base_url = (
+                                self.driver.current_url.split("/")[0]
+                                + "//"
+                                + self.driver.current_url.split("/")[2]
+                            )
+                            full_url = base_url + url_part
+                        else:
+                            full_url = url_part
+                        receipt_links.append(full_url)
+
+                # log a warning if the receipt links are not found
+                if not receipt_links:
+                    log.warning("No receipt link found on the order detail page.")
+                else:
+                    # download the receipt pdfs
+                    for link in receipt_links:
+                        self.download_receipt_pdf(link)
+
             except Exception as e:
                 log.error(f"Error downloading receipt or notes: {e}")
-            # 3. Follow wine links (collect links)
-            wine_links: List[str] = []
+
+            # 3. Download wine notes using the new function
+            wine_notes_links: List[str] = []
             try:
-                wine_link_elems = self.driver.find_elements(
-                    By.XPATH, "//a[contains(@href, '/product/')]"
-                )
-                for link in wine_link_elems:
-                    href = link.get_attribute("href")
-                    if href:
-                        wine_links.append(href)
-                        self.driver.execute_script(f"window.open('{href}', '_blank');")
-                        log.info(f"Opened wine link: {href}")
-                        self.driver.switch_to.window(self.driver.window_handles[-1])
-                        time.sleep(1)
-                        self.driver.close()
-                        self.driver.switch_to.window(self.driver.window_handles[0])
+                wine_notes_url = self.download_wine_notes_from_toolbar()
+                if wine_notes_url:
+                    wine_notes_links.append(wine_notes_url)
             except Exception as e:
-                log.error(f"Error following wine links: {e}")
+                log.error(f"Error downloading wine notes: {e}")
+
             log.info(f"Order Number: {order_number}")
             log.info(f"Order Date: {order_date}")
             log.info(f"Order Total: {order_total}")
             log.info(f"PDF Path: {pdf_path}")
-            log.info(f"Receipts: {receipts}")
-            log.info(f"Wine Notes: {wine_notes}")
-            log.info(f"Wine Links: {wine_links}")
+            log.info(f"Receipts: {receipt_links}")
+            log.info(f"Wine Notes: {wine_notes_links}")
+
             return OrderDetail(
                 order_number=order_number,
                 order_date=order_date,
                 order_total=order_total,
                 url=self.driver.current_url,
                 pdf_path=pdf_path,
-                receipts=receipts,
-                wine_notes=wine_notes,
-                wine_links=wine_links,
+                receipts=receipt_links,
+                wine_notes=wine_notes_links,
+                wine_links=wine_notes_links,
             )
         except Exception as e:
             log.error(f"Error extracting order details: {e}")
