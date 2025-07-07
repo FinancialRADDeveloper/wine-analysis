@@ -13,7 +13,7 @@ os.makedirs(PDF_DIR, exist_ok=True)
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
 LOGIN_URL = "https://www.thewinesociety.com/login"
-ORDER_HISTORY_URL = "https://www.thewinesociety.com/my-account/order-history/?page=1&months=500&epmonths=300&isEnPrimeur=False"
+ORDER_HISTORY_URL = "https://www.thewinesociety.com/my-account/order-history/?page=1&months=500&epmonths=300&isEnPrimeur=False"  # noqa: E501
 
 
 def login(session: requests.Session, email: str, password: str) -> bool:
