@@ -1,5 +1,8 @@
 import dash
-from dash import dcc, html, Input, Output, dash_table
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+from dash.dash_table import DataTable
 import plotly.express as px
 import pandas as pd
 from wine_soc_data_analysis import load_wine_data, clean_wine_data, get_data_summary
@@ -85,12 +88,12 @@ app.layout = html.Div(
                         html.Label("Wine Type:"),
                         dcc.Dropdown(
                             id="wine-type-filter",
-                            options=[{"label": "All Types", "value": "All"}]
-                            + [
-                                {"label": str(wine_type), "value": str(wine_type)}
-                                for wine_type in sorted(df["Wine_Type"].unique())
+                            options=[
+                                {"label": t, "value": t}
+                                for t in sorted(df["Wine_Type"].unique())
                             ],
                             value="All",
+                            clearable=False,
                             style={"width": "100%"},
                         ),
                     ],
@@ -105,14 +108,12 @@ app.layout = html.Div(
                         html.Label("Price Range:"),
                         dcc.Dropdown(
                             id="price-filter",
-                            options=[{"label": "All Prices", "value": "All"}]
-                            + [
-                                {"label": str(price_cat), "value": str(price_cat)}
-                                for price_cat in sorted(
-                                    df["Price_Category"].dropna().unique()
-                                )
+                            options=[
+                                {"label": p, "value": p}
+                                for p in sorted(df["Price_Category"].dropna().unique())
                             ],
                             value="All",
+                            clearable=False,
                             style={"width": "100%"},
                         ),
                     ],
@@ -207,18 +208,10 @@ app.layout = html.Div(
                     "Detailed Purchase Data",
                     style={"textAlign": "center", "marginTop": 30},
                 ),
-                dash_table.DataTable(
+                DataTable(
                     id="wine-table",
-                    columns=[
-                        {"name": "Product Name", "id": "Product name"},
-                        {"name": "Product Code", "id": "Product code"},
-                        {"name": "Purchase Date", "id": "Purchase date"},
-                        {"name": "Price (£)", "id": "Purchase price"},
-                        {"name": "Wine Type", "id": "Wine_Type"},
-                        {"name": "Vintage", "id": "Vintage"},
-                        {"name": "Region", "id": "Region_Code"},
-                    ],
-                    data=[],
+                    columns=[{"name": i, "id": i} for i in df.columns],
+                    data=df.to_dict("records"),
                     page_size=10,
                     style_table={"overflowX": "auto"},
                     style_cell={"textAlign": "left", "padding": "10px"},
@@ -245,7 +238,7 @@ app.layout = html.Div(
 
 
 # Callback to filter data
-@app.callback(  # type: ignore
+@app.callback(
     [
         Output("purchase-timeline", "figure"),
         Output("wine-type-pie", "figure"),

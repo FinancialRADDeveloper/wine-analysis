@@ -1,5 +1,5 @@
 import os
-import requests  # type: ignore[import-untyped]
+import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from bs4.element import Tag

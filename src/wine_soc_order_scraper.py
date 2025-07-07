@@ -1,4 +1,4 @@
-import requests  # type: ignore[import-untyped]
+import requests
 from bs4 import BeautifulSoup
 from typing import List
 import bs4

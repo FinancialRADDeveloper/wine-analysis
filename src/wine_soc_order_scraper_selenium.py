@@ -97,7 +97,7 @@ class WineSocietyOrderScraperSelenium:
         Find all 'View' buttons on the order history page.
         Returns a list of WebElement objects.
         """
-        return self.driver.find_elements(  # type: ignore
+        return self.driver.find_elements(
             By.XPATH, "//a[normalize-space(text())='View' and contains(@class, 'btn')]"
         )
 
