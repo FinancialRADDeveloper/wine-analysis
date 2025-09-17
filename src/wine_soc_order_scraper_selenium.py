@@ -396,7 +396,7 @@ class WineSocietyOrderScraperSelenium:
         return receipt_links
 
     def handle_order_detail_page(
-        self, output_dir: str = "order_details"
+        self, output_dir: str = r"Data/order_details"
     ) -> Optional[OrderDetail]:
         """
         Extract order number, order date, and order total from the order detail page.
